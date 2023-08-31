@@ -1,0 +1,270 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
+      crossorigin="anonymous"
+    />
+
+    <style>
+      #alertContainer{
+        position: fixed; top: 60px; width: 100%; z-index: 100;
+      }
+      .main-container{
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        min-height: 90vh;
+      }
+      .main-container .left-card{
+        display: flex; width: 50vw; border: none;
+      }
+      .main-container .left-card .card-body{
+        display: flex;
+            justify-content: center;
+            align-items: center;
+            border-color: none;
+      }
+      .main-container .right-card{
+        display: flex; width: 50vw; border: none
+      }
+      .main-container .right-card .card-body{
+        display: flex; flex-direction: column; text-align: left;
+      }
+
+      .main-container .right-card .card-body .recipentbox{
+        margin-top: 20%;
+      }
+
+
+  @media (max-width: 768px) {
+  .main-container {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .main-container .right-card{
+    width: 90%;
+    margin: 0 auto;
+    
+  }
+  .main-container .left-card {
+    width: 90%;
+    margin: 0 auto;
+    margin-top: 10%;
+  }
+}
+    </style>
+  </head>
+  <body>
+    <%- include('./partials/navbar')%>
+    <div
+      id="alertContainer" 
+    ></div>
+
+    <div class="main-container"
+    >
+      <div class="left-card">
+        <div
+          class="card-body"
+        >
+          <form id="emailForm" enctype="multipart/form-data">
+            <h1>New Mail</h1>
+            <label for="csvFile">To</label><br />
+            <input type="file" id="csvFile" name="csvFile" /><br /><br />
+
+            <label for="subject">Subject:</label><br />
+            <input
+              type="text"
+              id="subject"
+              name="subject"
+              style="width: 90%"
+            /><br /><br />
+
+            <label for="text">Plain Text Body:</label><br />
+            <textarea id="text" name="text" style="width: 90%"></textarea
+            ><br /><br />
+
+            <label for="html">HTML Body:</label><br />
+            <textarea id="html" name="html" style="width: 90%"></textarea
+            ><br /><br />
+
+            <button type="submit" class="btn btn-info" id="sendButton">
+              Send Mail
+            </button>
+            <div id="loader" style="display: none">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="right-card">
+        <div
+          class="card-body"
+        >
+          <div class="recipentbox">
+            <h4></h4>
+          </div>
+          <div id="emailList"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function handleFormSubmit(event) {
+        event.preventDefault();
+        const csvFile = document.getElementById("csvFile").files[0];
+        const subject = document.getElementById("subject").value;
+        const text = document.getElementById("text").value;
+        const html = document.getElementById("html").value;
+
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+          const contents = e.target.result;
+          const emailArray = parseCSV(contents);
+
+          if (emailArray.length === 0) {
+            displayMessage("No valid email addresses provided", "error");
+            return;
+          }
+
+          const formData = {
+            emailArray,
+            subject,
+            text,
+            html,
+          };
+
+          toggleButtonState(true);
+          toggleLoader(true);
+
+          sendEmail(formData);
+        };
+
+        reader.readAsText(csvFile);
+      }
+
+      function parseCSV(data) {
+        const lines = data.split("\n");
+        const emailArray = [];
+
+        for (let i = 0; i < lines.length; i++) {
+          const email = lines[i].trim();
+
+          if (email !== "") {
+            emailArray.push(email);
+          }
+        }
+
+        return emailArray;
+      }
+
+      // Function to clear form fields
+      function clearFormFields() {
+        document.getElementById("csvFile").value = "";
+        document.getElementById("subject").value = "";
+        document.getElementById("text").value = "";
+        document.getElementById("html").value = "";
+      }
+
+      function sendEmail(formData) {
+        fetch("/api/mail", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            console.log(data.msg);
+            displayMessage(data.msg, "success");
+            displayValidEmails(data.validEmails);
+            toggleButtonState(false);
+            toggleLoader(false);
+            clearFormFields(); // Clear form fields
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            displayMessage("An error occurred. Please try again.", "error");
+            toggleButtonState(false);
+            toggleLoader(false);
+          });
+      }
+
+      //  function displayMessage(message, type) {
+      //   const alertContainer = document.getElementById("alertContainer");
+
+      //   const alertElement = document.createElement("div");
+      // console.log(type);
+      //   alertElement.className = `alert alert-${type=="error"?"danger":type} alert-dismissible fade show`;
+      //   alertElement.innerHTML = `<strong>${type.toUpperCase()}: </strong>${message}
+      //       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+
+      //   alertContainer.appendChild(alertElement);
+
+      //   setTimeout(() => {
+      //     alertElement.remove();
+      //   }, 4000);
+      // }
+
+      function displayMessage(message, type) {
+    const alertContainer = document.getElementById("alertContainer");
+    console.log({type})
+    const alertElement = document.createElement("div");
+    if (type === "error" ) {
+      alertElement.className = "alert alert-danger alert-dismissible fade show";
+    } else if (type === "success" && typeof message !== "undefined") {
+      alertElement.className = "alert alert-success alert-dismissible fade show";
+    } else {
+      // alertElement.className = "alert alert-danger alert-dismissible fade show";
+      return;
+    }
+
+    alertElement.innerHTML = `<strong>${(typeof message !== "undefined")?type.toUpperCase():"ERROR"}: </strong>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+
+    alertContainer.appendChild(alertElement);
+
+    setTimeout(() => {
+      alertElement.remove();
+    }, 4000);
+  }
+      function displayValidEmails(emails) {
+        const emailList = document.getElementById("emailList");
+        const emailItems = emails
+          .map((email) => `<li class="email-item">${email}</li>`)
+          .join("");
+        emailList.innerHTML = `<ul>${emailItems}</ul>`;
+      }
+
+      function toggleButtonState(disabled) {
+        const sendButton = document.getElementById("sendButton");
+        sendButton.disabled = disabled;
+      }
+
+      function toggleLoader(show) {
+        const loader = document.getElementById("loader");
+        loader.style.display = show ? "block" : "none";
+      }
+
+      document
+        .getElementById("emailForm")
+        .addEventListener("submit", handleFormSubmit);
+    </script>
+
+    <style>
+      /* Styles */
+    </style>
+
+    <%- include('./partials/footer')%>
+  </body>
+</html>
+

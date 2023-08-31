@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Email Sender</title>
+  </head>
+  <body>
+    <h1>Email Sender</h1>
+    <form id="emailForm" enctype="multipart/form-data">
+      <label for="csvFile">Upload CSV File:</label><br>
+      <input type="file" id="csvFile" name="csvFile"><br><br>
+
+      <label for="subject">Subject:</label><br>
+      <input type="text" id="subject" name="subject"><br><br>
+
+      <label for="text">Plain Text Body:</label><br>
+      <textarea id="text" name="text"></textarea><br><br>
+
+      <label for="html">HTML Body:</label><br>
+      <textarea id="html" name="html"></textarea><br><br>
+
+      <button type="submit">Send Email</button>
+    </form>
+
+    <div id="message"></div>
+
+    <script>
+      document.getElementById('emailForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        const csvFile = document.getElementById('csvFile').files[0];
+        const subject = document.getElementById('subject').value;
+        const text = document.getElementById('text').value;
+        const html = document.getElementById('html').value;
+
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+          const contents = e.target.result;
+          const lines = contents.split('\n');
+          const emailArray = lines.map(line => line.trim());
+         
+          
+          fetch('/api/mail', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ emailArray, subject, text, html })
+          })
+            .then(response => response.json())
+            .then(data => {
+              console.log(data.msg);
+              const messageDiv = document.getElementById('message');
+              messageDiv.innerHTML = `<p class="success">${data.msg}</p>`;
+            })
+            .catch(error => {
+              console.error('Error:', error);
+              const messageDiv = document.getElementById('message');
+              messageDiv.innerHTML = `<p class="error">An error occurred. Please try again.</p>`;
+            });
+        };
+
+        reader.readAsText(csvFile);
+      });
+    </script>
+
+    <style>
+      .success {
+        color: green;
+      }
+
+      .error {
+        color: red;
+      }
+    </style>
+  </body>
+</html>
